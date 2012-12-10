@@ -599,6 +599,7 @@ class Graphene.TrafficLightView extends Backbone.View
     @firstrun = true
     @warning_threshold = @options.warning_threshold
     @alarm_threshold = @options.alarm_threshold
+    @threshold_downwards = @options.threshold_downwards
     @parent = @options.parent
     @title = @options.title
     @link = @options.link
@@ -608,12 +609,12 @@ class Graphene.TrafficLightView extends Backbone.View
   render: ()=>
     # extract data object from the backing model
     data = @model.get('data')
-    console.log("Alarm threshold is set to #{@alarm_threshold}, warning threshold is set to #{@warning_threshold}, and max value is #{data[0].ymax}")
+    # remove the hash tag from the parent variable or else the unique id can't be parsed
+    unique_id = 'tlight' + @parent.replace /#/, ""
 
     # if this is the first run draw the circle
     if @firstrun
       @firstrun = false
-      console.log('first run - drawing circle and title')
       parent_element = d3.select(@parent)
 
       # enclose the alarm in a link, if defined
@@ -621,32 +622,44 @@ class Graphene.TrafficLightView extends Backbone.View
         parent_element = parent_element.append('a').attr('href', @link)
 
       # define the svg element
-      svg_element = parent_element.append("svg").attr("width", 100).attr("height", 100)
+      svg_element = parent_element.append('svg').attr('width', '120').attr('height', '90').attr('class', 'tlview')
 
-      # remove the hash tag from the parent variable or else the unique id can't be parsed
-      unique_id = 'tlight' + @parent.replace /#/, ""
-      svg_element.append("svg:circle").attr("cx",50).attr("cy",50).attr("r", 30).attr("id", unique_id)
-
-      # append a title, if defined
-      if @title
-        parent_element.append('div').attr('class', 'label').text(@title + ' - alarm threshold: ' + @alarm_threshold + ' - warning threshold: ' + @warning_threshold)
+      # append the circle
+      svg_element.append('svg:circle').attr('cx', 50).attr('cy', 50).attr('r', 30).attr('id', unique_id)
 
       # append the max value
       svg_element.append('svg:text')
         .text(data[0].ymax)
-        .attr('x', '40')
+        .attr('text-anchor', 'middle')
+        .attr('x', '50')
         .attr('y', '55')
         .attr('id', unique_id + 'text')
-   
-    # evaluate whether to trigger alarm or warning
-    warning_on = data[0].ymax > @warning_threshold
-    alarm_on = data[0].ymax > @alarm_threshold
 
-    # extract the circle element by its id
-    the_circle = d3.select('#'+ unique_id)
+      if @title
+        # append a title, if defined
+        svg_element.append('svg:text')
+          .text(@title)
+          .attr('text-anchor', 'middle')
+          .attr('x', '50')
+          .attr('y', '10')
+          .attr('id', unique_id + 'title')
+
+    # evaluate whether to trigger an alarm or a warning
+    if @threshold_downwards # if specified, the alarm or warning is triggered if the max value is lower than the threshold
+      warning_on = data[0].ymax < @warning_threshold
+      alarm_on = data[0].ymax < @alarm_threshold
+    else # otherwise, the alarm is triggered if the max value is higher than the threshold
+      warning_on = data[0].ymax > @warning_threshold
+      alarm_on = data[0].ymax > @alarm_threshold
+
+    # select the circle element by its id
+    the_circle = d3.select('#' + unique_id)
 
     # update the max value
-    d3.select(unique_id + 'text').text(data[0].ymax)
+    d3.select('#' + unique_id + 'text').text(data[0].ymax)
+
+    #  select any previous alarm animation and remove it
+    d3.select('#' + unique_id + 'a1').remove()
 
     # do the alarm boogie
     if alarm_on || warning_on
@@ -656,6 +669,7 @@ class Graphene.TrafficLightView extends Backbone.View
       else
         color0 = '#D6EA00'
         color1 = '#A6B500'
+      the_circle.style('fill', color0)
       the_circle.append('animate')
           .attr('id', unique_id + 'a1')
           .attr('attributeName', 'fill')
@@ -664,7 +678,4 @@ class Graphene.TrafficLightView extends Backbone.View
           .attr('dur', '3s')
           .attr('repeatCount', 'indefinite')
     else
-      the_circle.style('fill','green')
-      the_circle.selectAll(this.childNodes).remove()
-
-    console.log('trigger alarm? ' + alarm_on)
+      the_circle.style('fill', 'green')
