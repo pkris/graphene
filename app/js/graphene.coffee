@@ -337,6 +337,7 @@ class Graphene.TimeSeriesView extends Backbone.View
     @firstrun = true
     @parent = @options.parent || '#parent'
     @null_value = 0
+    @ymin = @options.ymin
 
     @vis = d3.select(@parent).append("svg")
             .attr("class", "tsview")
@@ -349,7 +350,7 @@ class Graphene.TimeSeriesView extends Backbone.View
     @value_format = d3.format(@value_format)
 
     @model.bind('change', @render)
-    console.log("TS view: #{@width}x#{@height} padding:#{@padding} animate: #{@animate_ms} labels: #{@num_labels}")
+    console.log("TS view: #{@width}x#{@height} padding:#{@padding} animate: #{@animate_ms} labels: #{@num_labels} ymin: #{@ymin}")
 
 
   render: ()=>
@@ -363,6 +364,10 @@ class Graphene.TimeSeriesView extends Backbone.View
     #
     dmax = _.max data, (d)-> d.ymax
     dmin = _.min data, (d)-> d.ymin
+    #
+    # if ymin was specified, replace the value in the data set
+    #
+    if @ymin? then dmin.ymin = @ymin
 
     #
     # build dynamic x & y metrics.
